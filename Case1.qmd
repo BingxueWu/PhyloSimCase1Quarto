@@ -1,0 +1,494 @@
+---
+title: "Case Study 1"
+format:
+  html: default
+  docx: default
+editor: visual
+---
+
+## Phylosim-Case 1
+
+We carried out a set of spatially explicit simulations within the PhyloSim framework to investigate and replicate streamlined versions of the patterns originally described by Chave et al. (2002). The focus of our analysis centred on examining how the species-area curve (SAC) behave across a range of ecological scenarios.
+
+Four model scenarios were implemented to reflect various ecological processes. In the neutral model, both density dependence and environmental filtering were disabled to ensure that all species were functionally identical. In the environmental niche model, density dependence was disabled while environmental filtering was enabled to simulate species-specific environmental tolerances and resource requirements. This approach differs from that of (Chave et al., 2002), who modeled niche differentiation through life-history trade-offs (e.g., survival, fecundity, and competitive ability). However, for this experiment, it was considered a substitute for comparative purposes. In the competition model, density dependence was enabled and environmental filtering was disabled. Although Chave et al. implemented CNDD based on species identity, PhyloSim did not support this directly. Instead, a trait-based density dependence mechanism was used, in which individuals experienced stronger competition when surrounded by neighbors with similar traits. This method captures the essence of CNDD under the assumption of low intraspecific trait variation. In the combined model, both density dependence and environmental filtering were enabled to examine the interaction between niche differentiation and competitive interactions.
+
+Load the packages
+
+```{r}
+library(PhyloSim)
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+```
+
+## Running the simulations- Neutral model, Environmental model, Density Dependent model, Combination model
+
+```{r}
+# Create two empty lists to store simulation results
+# for global and local dispersal across 10 seeds
+results_globalNeu <- list()
+results_localNeu <- list()
+
+# Loop through seeds 1 to 10
+for (i in 1:10) {
+  cat("Running seed", i, "of 10...\n")
+  
+  # Set up parameters for global dispersal 
+  par1 <- createCompletePar(
+    x = 100, y = 100, dispersal = 0, runs = 10000,
+    density = 0, environment = 0, specRate = 5,
+    seed = i, type = "base"
+  )
+ # Same parameters but with local dispersal  
+  par2 <- createCompletePar(
+    x = 100, y = 100, dispersal = 1, runs = 10000,
+    density = 0, environment = 0, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  # Run both simulations in parallel
+  parmBatch <- list(par1, par2)
+  simuBatch <- runSimulationBatch(parmBatch, parallel = 2)
+  
+  # Store results in their respective lists
+  results_globalNeu[[i]] <- simuBatch[[1]]
+  results_localNeu[[i]]  <- simuBatch[[2]]
+}
+
+##SAC data was extracted from each replicate and averaged across the 10 runs to produce mean species accumulation curves with confidence intervals.
+
+#  Extracting SAC Data
+# Define a reusable function to extract SAC data from simulation results
+extract_sacNeu <- function(simu_list, dispersal_label) {
+  all_data <- list()
+  for (i in 1:length(simu_list)) {
+    df <- sac(simu_list[[i]], which.result = NULL)
+    df$seed      <- i
+    df$dispersal <- dispersal_label
+    all_data[[i]] <- df
+  }
+  return(do.call(rbind, all_data))
+}
+
+# Apply the function to both dispersal modes
+df_globalNeu <- extract_sacNeu(results_globalNeu, "Global")
+df_localNeu <- extract_sacNeu(results_localNeu,  "Local")
+
+# Combine into one data frame
+df_allNeu  <- rbind(df_globalNeu, df_localNeu)
+
+# Calculate mean SAC across 10 replicates
+df_meanNeu <- df_allNeu %>%
+  group_by(size, dispersal) %>%
+  summarise(
+    Mean    = mean(sr.Mean),
+    SE      = sd(sr.Mean) / sqrt(n()),     
+    UpperCI = Mean + SE,
+    LowerCI = Mean - SE,
+    .groups = "drop"
+  )
+
+
+###Environmental model
+
+results_globalEnv <- list()
+results_localEnv <- list()
+
+for (i in 1:10) {
+  cat("Running seed", i, "of 10...\n")
+  
+  par1 <- createCompletePar(
+    x = 100, y = 100, dispersal = 0, runs = 10000,
+    density = 0, environment = 1, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  par2 <- createCompletePar(
+    x = 100, y = 100, dispersal = 1, runs = 10000,
+    density = 0, environment = 1, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  parmBatch <- list(par1, par2)
+  simuBatch <- runSimulationBatch(parmBatch, parallel = 2)
+  
+  results_globalEnv[[i]] <- simuBatch[[1]]
+  results_localEnv[[i]]  <- simuBatch[[2]]
+}
+
+#  Extracting SAC Data
+extract_sacEnv <- function(simu_list, dispersal_label) {
+  all_data <- list()
+  for (i in 1:length(simu_list)) {
+    df <- sac(simu_list[[i]], which.result = NULL)
+    df$seed      <- i
+    df$dispersal <- dispersal_label
+    all_data[[i]] <- df
+  }
+  return(do.call(rbind, all_data))
+}
+
+df_globalEnv <- extract_sacEnv(results_globalEnv, "Global")
+df_localEnv  <- extract_sacEnv(results_localEnv,  "Local")
+df_allEnv    <- rbind(df_globalEnv, df_localEnv)
+
+# Average of 10 trials
+df_meanEnv <- df_allEnv %>%
+  group_by(size, dispersal) %>%
+  summarise(
+    Mean    = mean(sr.Mean),
+    SE      = sd(sr.Mean) / sqrt(n()),     
+    UpperCI = Mean + SE,
+    LowerCI = Mean - SE,
+    .groups = "drop"
+  )
+
+###Density Dependent model
+
+results_globalDen <- list()
+results_localDen <- list()
+
+for (i in 1:10) {
+  cat("Running seed", i, "of 10...\n")
+  
+  par1 <- createCompletePar(
+    x = 100, y = 100, dispersal = 0, runs = 10000,
+    density = 1, environment = 0, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  par2 <- createCompletePar(
+    x = 100, y = 100, dispersal = 1, runs = 10000,
+    density = 1, environment = 0, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  parmBatch <- list(par1, par2)
+  simuBatch <- runSimulationBatch(parmBatch, parallel = 2)
+  
+  results_globalDen[[i]] <- simuBatch[[1]]
+  results_localDen[[i]]  <- simuBatch[[2]]
+}
+#  Extracting SAC Data
+extract_sacDen <- function(simu_list, dispersal_label) {
+  all_data <- list()
+  for (i in 1:length(simu_list)) {
+    df <- sac(simu_list[[i]], which.result = NULL)
+    df$seed      <- i
+    df$dispersal <- dispersal_label
+    all_data[[i]] <- df
+  }
+  return(do.call(rbind, all_data))
+}
+
+df_globalDen <- extract_sacDen(results_globalDen, "Global")
+df_localDen  <- extract_sacDen(results_localDen,  "Local")
+df_allDen    <- rbind(df_globalDen, df_localDen)
+
+# Average of 10 trials
+df_meanDen <- df_allDen %>%
+  group_by(size, dispersal) %>%
+  summarise(
+    Mean    = mean(sr.Mean),
+    SE      = sd(sr.Mean) / sqrt(n()),     
+    UpperCI = Mean + SE,
+    LowerCI = Mean - SE,
+    .groups = "drop"
+  )
+
+
+
+###Combination model
+
+results_globalCom <- list()
+results_localCom <- list()
+
+for (i in 1:10) {
+  cat("Running seed", i, "of 10...\n")
+  
+  par1 <- createCompletePar(
+    x = 100, y = 100, dispersal = 0, runs = 10000,
+    density = 1, environment = 1, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  par2 <- createCompletePar(
+    x = 100, y = 100, dispersal = 1, runs = 10000,
+    density = 1, environment = 1, specRate = 5,
+    seed = i, type = "base"
+  )
+  
+  parmBatch <- list(par1, par2)
+  simuBatch <- runSimulationBatch(parmBatch, parallel = 2)
+  
+  results_globalCom[[i]] <- simuBatch[[1]]
+  results_localCom[[i]]  <- simuBatch[[2]]
+}
+
+#  Extracting SAC Data
+extract_sacCom <- function(simu_list, dispersal_label) {
+  all_data <- list()
+  for (i in 1:length(simu_list)) {
+    df <- sac(simu_list[[i]], which.result = NULL)
+    df$seed      <- i
+    df$dispersal <- dispersal_label
+    all_data[[i]] <- df
+  }
+  return(do.call(rbind, all_data))
+}
+
+df_globalCom <- extract_sacCom(results_globalCom, "Global")
+df_localCom  <- extract_sacCom(results_localCom,  "Local")
+df_allCom    <- rbind(df_globalCom, df_localCom)
+
+# Average of 10 trials
+df_meanCom <- df_allCom %>%
+  group_by(size, dispersal) %>%
+  summarise(
+    Mean    = mean(sr.Mean),
+    SE      = sd(sr.Mean) / sqrt(n()),     
+    UpperCI = Mean + SE,
+    LowerCI = Mean - SE,
+    .groups = "drop"
+  )
+
+
+```
+
+Figures with confidence intervals and error bars
+
+```{r}
+### Neutral model
+P1 <- ggplot(df_meanNeu, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "pink", alpha = 0.2, color = NA) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "pink") +
+  geom_line(color = "pink", linewidth = 0.8) +
+  geom_point(color = "pink", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Neutral Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Environmental model
+P2 <- ggplot(df_meanEnv, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "darkgreen", alpha = 0.2, color = NA) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "darkgreen") +
+  geom_line(color = "darkgreen", linewidth = 0.8) +
+  geom_point(color = "darkgreen", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Environmental Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Density Dependent model
+P3 <- ggplot(df_meanDen, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "darkblue", alpha = 0.2, color = NA) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "darkblue") +
+  geom_line(color = "darkblue", linewidth = 0.8) +
+  geom_point(color = "darkblue", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Density Dependent Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Combination model
+P4 <- ggplot(df_meanCom, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "orange", alpha = 0.2, color = NA) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "orange") +
+  geom_line(color = "orange", linewidth = 0.8) +
+  geom_point(color = "orange", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Combination Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+plot_grid(P1, P2, P3, P4, ncol = 2, labels = "AUTO", align = "hv")
+```
+
+Figures with error bars (without confidence intervals)
+
+```{r}
+### Neutral model
+P1 <- ggplot(df_meanNeu, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "pink") +
+  geom_line(color = "pink", linewidth = 0.8) +
+  geom_point(color = "pink", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Neutral Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Environmental model
+P2 <- ggplot(df_meanEnv, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "darkgreen") +
+  geom_line(color = "darkgreen", linewidth = 0.8) +
+  geom_point(color = "darkgreen", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Environmental Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Density Dependent model
+P3 <- ggplot(df_meanDen, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "darkblue") +
+  geom_line(color = "darkblue", linewidth = 0.8) +
+  geom_point(color = "darkblue", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Density Dependent Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Combination model
+P4 <- ggplot(df_meanCom, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
+                width = 0.05, color = "orange") +
+  geom_line(color = "orange", linewidth = 0.8) +
+  geom_point(color = "orange", size = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Combination Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+plot_grid(P1, P2, P3, P4, ncol = 2, labels = "AUTO", align = "hv")
+```
+
+with confidence bands (without error bars)
+
+```{r}
+### Neutral model
+P1 <- ggplot(df_meanNeu, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "pink", alpha = 0.2, color = NA) +
+  geom_line(color = "pink", linewidth = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Neutral Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Environmental model
+P2 <- ggplot(df_meanEnv, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "darkgreen", alpha = 0.2, color = NA) +
+  geom_line(color = "darkgreen", linewidth = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Environmental Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Density Dependent model
+P3 <- ggplot(df_meanDen, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "darkblue", alpha = 0.2, color = NA) +
+  geom_line(color = "darkblue", linewidth = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Density Dependent Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+### Combination model
+P4 <- ggplot(df_meanCom, aes(x = size, y = Mean, linetype = dispersal)) +
+  geom_ribbon(aes(ymin = LowerCI, ymax = UpperCI),
+              fill = "orange", alpha = 0.2, color = NA) +
+  geom_line(color = "orange", linewidth = 0.8) +
+  scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 100),
+                breaks = c(1, 3, 10, 30, 100)) +
+  labs(title = "Combination Model", x = "Area",
+       y = "Mean Number of Species", linetype = "Dispersal") +
+  theme_bw() +
+  theme(panel.border    = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line       = element_line(color = "black"))
+
+
+plot_grid(P1, P2, P3, P4, ncol = 2, labels = "AUTO", align = "hv")
+```
