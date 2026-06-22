@@ -2,6 +2,8 @@
 title: "Case Study 1"
 format:
   html: default
+    self_contained: true
+    embed-resources: true
   docx: default
 editor: visual
 ---
@@ -268,7 +270,7 @@ P1 <- ggplot(df_meanNeu, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_point(color = "pink", size = 0.8) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 150),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Neutral Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -288,7 +290,7 @@ P2 <- ggplot(df_meanEnv, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_point(color = "darkgreen", size = 0.8) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 150),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Environmental Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -308,7 +310,7 @@ P3 <- ggplot(df_meanDen, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_point(color = "darkblue", size = 0.8) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 150),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Density Dependent Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -328,7 +330,7 @@ P4 <- ggplot(df_meanCom, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_point(color = "orange", size = 0.8) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 150),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Combination Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -347,12 +349,12 @@ Figures with error bars (without confidence intervals)
 ### Neutral model
 P1 <- ggplot(df_meanNeu, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
-                width = 0.05, color = "pink") +
+                width = 0.08, color = "pink") +
   geom_line(color = "pink", linewidth = 0.8) +
-  geom_point(color = "pink", size = 0.8) +
+  geom_point(color = "pink", size = 0.5) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 200),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Neutral Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -365,12 +367,12 @@ P1 <- ggplot(df_meanNeu, aes(x = size, y = Mean, linetype = dispersal)) +
 ### Environmental model
 P2 <- ggplot(df_meanEnv, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
-                width = 0.05, color = "darkgreen") +
+                width = 0.08, color = "darkgreen") +
   geom_line(color = "darkgreen", linewidth = 0.8) +
-  geom_point(color = "darkgreen", size = 0.8) +
+  geom_point(color = "darkgreen", size = 0.5) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 200),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Environmental Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -383,12 +385,12 @@ P2 <- ggplot(df_meanEnv, aes(x = size, y = Mean, linetype = dispersal)) +
 ### Density Dependent model
 P3 <- ggplot(df_meanDen, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
-                width = 0.05, color = "darkblue") +
+                width = 0.08, color = "darkblue") +
   geom_line(color = "darkblue", linewidth = 0.8) +
-  geom_point(color = "darkblue", size = 0.8) +
+  geom_point(color = "darkblue", size = 0.5) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 200),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Density Dependent Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +
@@ -401,12 +403,12 @@ P3 <- ggplot(df_meanDen, aes(x = size, y = Mean, linetype = dispersal)) +
 ### Combination model
 P4 <- ggplot(df_meanCom, aes(x = size, y = Mean, linetype = dispersal)) +
   geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI),
-                width = 0.05, color = "orange") +
+                width = 0.08, color = "orange") +
   geom_line(color = "orange", linewidth = 0.8) +
-  geom_point(color = "orange", size = 0.8) +
+  geom_point(color = "orange", size = 0.5) +
   scale_linetype_manual(values = c("Global" = "solid", "Local" = "dashed")) +
   scale_x_log10() +
-  scale_y_log10(limits = c(1, 100),
+  scale_y_log10(limits = c(1, 200),
                 breaks = c(1, 3, 10, 30, 100)) +
   labs(title = "Combination Model", x = "Area",
        y = "Mean Number of Species", linetype = "Dispersal") +

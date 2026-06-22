@@ -1,0 +1,279 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+## PhyloSim-Case study 2-PD
+
+Load the packages
+
+```{r}
+library(PhyloSim)
+library(ggplot2)
+library(dplyr)
+library(ape)
+library(apTreeshape)
+library(picante)
+library(cowplot)
+```
+
+```{r}
+# 1. Running 4 models × 2 dispersal types × 10 replicates
+
+# Initialize 8 empty lists
+results_neutral_global    <- list()
+results_neutral_local     <- list()
+results_density_global    <- list()
+results_density_local     <- list()
+results_env_global        <- list()
+results_env_local         <- list()
+results_combined_global   <- list()
+results_combined_local    <- list()
+
+for (i in 1:10) {
+  cat("Running seed", i, "of 10...\n")
+  
+  parmBatch <- list(
+    # Neutral
+    createCompletePar(x=100, y=100, dispersal=0, runs=10000,
+                      density=0, environment=0, specRate=5, seed=i, type="base"),
+    createCompletePar(x=100, y=100, dispersal=1, runs=10000,
+                      density=0, environment=0, specRate=5, seed=i, type="base"),
+    # Density dependent
+    createCompletePar(x=100, y=100, dispersal=0, runs=10000,
+                      density=1, environment=0, specRate=5, seed=i, type="base"),
+    createCompletePar(x=100, y=100, dispersal=1, runs=10000,
+                      density=1, environment=0, specRate=5, seed=i, type="base"),
+    # Environmental
+    createCompletePar(x=100, y=100, dispersal=0, runs=10000,
+                      density=0, environment=1, specRate=5, seed=i, type="base"),
+    createCompletePar(x=100, y=100, dispersal=1, runs=10000,
+                      density=0, environment=1, specRate=5, seed=i, type="base"),
+    # Combination
+    createCompletePar(x=100, y=100, dispersal=0, runs=10000,
+                      density=1, environment=1, specRate=5, seed=i, type="base"),
+    createCompletePar(x=100, y=100, dispersal=1, runs=10000,
+                      density=1, environment=1, specRate=5, seed=i, type="base")
+  )
+  
+  simuBatch <- runSimulationBatch(parmBatch, parallel=8)
+  
+  results_neutral_global[[i]]  <- simuBatch[[1]]
+  results_neutral_local[[i]]   <- simuBatch[[2]]
+  results_density_global[[i]]  <- simuBatch[[3]]
+  results_density_local[[i]]   <- simuBatch[[4]]
+  results_env_global[[i]]      <- simuBatch[[5]]
+  results_env_local[[i]]       <- simuBatch[[6]]
+  results_combined_global[[i]] <- simuBatch[[7]]
+  results_combined_local[[i]]  <- simuBatch[[8]]
+}
+```
+
+```{r}
+# 2. Calculate Colless and PD
+
+calc_metrics <- function(simu_list, model_label, dispersal_label) {
+  results <- data.frame()
+  
+  for (i in 1:length(simu_list)) {
+    
+    tree <- simu_list[[i]]$Output[[1]]$phylogeny
+    
+    # Colless imbalance
+    tree_shape  <- as.treeshape(tree)
+    colless_val <- colless(tree_shape, norm = "yule")
+    
+    # Phylogenetic Diversity
+    comm <- matrix(1, nrow=1, ncol=length(tree$tip.label))
+    colnames(comm) <- tree$tip.label
+    pd_val <- pd(comm, tree)$PD
+    
+    results <- rbind(results, data.frame(
+      seed      = i,
+      model     = model_label,
+      dispersal = dispersal_label,
+      colless   = colless_val,
+      pd        = pd_val
+    ))
+  }
+  return(results)
+}
+
+
+```
+
+```{r}
+#3.Extract all metrics
+
+metrics_all <- rbind(
+  calc_metrics(results_neutral_global,  "Neutral",     "Global"),
+  calc_metrics(results_neutral_local,   "Neutral",     "Local"),
+  calc_metrics(results_density_global,  "Density Dep", "Global"),
+  calc_metrics(results_density_local,   "Density Dep", "Local"),
+  calc_metrics(results_env_global,      "Env Filtering", "Global"),
+  calc_metrics(results_env_local,       "Env Filtering", "Local"),
+  calc_metrics(results_combined_global, "Combination", "Global"),
+  calc_metrics(results_combined_local,  "Combination", "Local")
+)
+
+#Set the order
+metrics_all$model <- factor(metrics_all$model,
+                            levels = c("Neutral", "Density Dep", 
+                                       "Env Filtering", "Combination"))
+metrics_all$dispersal <- factor(metrics_all$dispersal, 
+                                levels = c("Global", "Local"))
+
+
+```
+
+```{r}
+# 4.Summary table
+
+summary_table <- metrics_all %>%
+  group_by(model, dispersal) %>%
+  summarise(
+    Colless_mean = round(mean(colless), 3),
+    Colless_sd   = round(sd(colless),   3),
+    PD_mean      = round(mean(pd),      3),
+    PD_sd        = round(sd(pd),        3),
+    .groups = "drop"
+  )
+
+print(summary_table)
+```
+
+```{r}
+#5.Visualization
+
+#Type 1 Boxplot
+
+
+my_colors <- c(
+  "Neutral"       = "pink",
+  "Density Dep"   = "darkblue",
+  "Env Filtering" = "darkgreen",
+  "Combination"   = "orange"
+)
+
+# Colless imbalance
+p_colless <- ggplot(metrics_all, 
+                    aes(x=model, y=colless, fill=model, linetype=dispersal)) +
+  
+  geom_boxplot(alpha=0.7, position=position_dodge(width=0.8)) +
+  scale_fill_manual(values=my_colors) +
+  scale_linetype_manual(values=c("Global"="solid", "Local"="dashed")) +
+  labs(
+    x        = "Model",
+    y        = "Colless Imbalance (Yule-normalized)",
+    fill     = "Model",
+    linetype = "Dispersal"
+  ) +
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# Phylogenetic Diversity
+p_pd <- ggplot(metrics_all, 
+               aes(x=model, y=pd, fill=model, linetype=dispersal)) +
+  
+  geom_boxplot(alpha=0.7, position=position_dodge(width=0.8)) +
+  scale_fill_manual(values=my_colors) +
+  scale_linetype_manual(values=c("Global"="solid", "Local"="dashed")) +
+  labs(
+    x        = "Model",
+    y        = "Phylogenetic Diversity (PD)",
+    fill     = "Model",
+    linetype = "Dispersal"
+  ) +
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot_grid(
+  p_colless, p_pd,
+  ncol   = 2,
+  labels = c("A", "B")
+)
+#| fig-width: 14
+#| fig-height: 6
+#| out-width: "100%"
+
+
+
+```
+
+```{r}
+# Type 2 Dot plot with error bars
+#| fig-width: 20    # 加宽
+#| fig-height: 5
+#| fig-cap: "Figure 2: Colless Imbalance and Phylogenetic Diversity"
+
+my_colors <- c(
+  "Neutral"       = "pink",
+  "Density Dep"   = "darkblue",
+  "Env Filtering" = "darkgreen",
+  "Combination"   = "orange"
+)
+
+# Colless Imbalance
+p_colless <- ggplot(summary_table, 
+                    aes(x = model, y = Colless_mean, 
+                        color = model, shape = dispersal)) +
+  geom_point(size = 4, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = Colless_mean - Colless_sd,
+                    ymax = Colless_mean + Colless_sd),
+                width    = 0.2,
+                position = position_dodge(width = 0.5)) +
+  scale_color_manual(values = my_colors) +
+  scale_shape_manual(values = c("Global" = 16, "Local" = 17)) +
+  labs(
+    x     = "Model",
+    y     = "Colless Imbalance (Yule-normalized)",
+    color = "Model",
+    shape = "Dispersal"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    legend.direction = "vertical"   # ← 竖排
+  )
+
+# Phylogenetic Diversity
+p_pd <- ggplot(summary_table, 
+               aes(x = model, y = PD_mean, 
+                   color = model, shape = dispersal)) +
+  geom_point(size = 4, position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = PD_mean - PD_sd,
+                    ymax = PD_mean + PD_sd),
+                width    = 0.2,
+                position = position_dodge(width = 0.5)) +
+  scale_color_manual(values = my_colors) +
+  scale_shape_manual(values = c("Global" = 16, "Local" = 17)) +
+  labs(
+    x     = "Model",
+    y     = "Phylogenetic Diversity (PD)",
+    color = "Model",
+    shape = "Dispersal"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+legend <- get_legend(p_colless)
+
+
+p_colless_nl <- p_colless + theme(legend.position = "none")
+p_pd_nl      <- p_pd      + theme(legend.position = "none")
+
+
+plot_grid(
+  plot_grid(
+    p_colless_nl, p_pd_nl,
+    ncol   = 2,
+    labels = c("A", "B")
+  ),
+  legend,
+  ncol       = 2,           
+  rel_widths = c(1, 0.15)   
+)
+```
